@@ -70,6 +70,7 @@ int main() {
 
   // MPC is initialized here!
   MPC mpc;
+ const double Lf = 2.67;
 
   h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -91,6 +92,58 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double delta = j[i]["steering_angle"];
+          double a = j[i]["throttle"];
+        
+            
+          // Transforms waypoints coordinates to the cars coordinates.
+          size_t n_waypoints = ptsx.size();
+          auto ptsx_transform = Eigen::VectorXd(n_waypoints);
+          auto ptsy_transform = Eigen::VectorXd(n_waypoints);
+          for (int i = 0; i < n_waypoints; i++ ) {
+                double x = ptsx[i] - px;
+                double y = ptsy[i] - py;
+                double zero_psi = 0.0 - psi;
+                ptsx_transform[i] = x * cos( zero_psi ) - y * sin( zero_psi );
+                ptsy_transform[i] = x * sin( zero_psi ) + y * cos( zero_psi );
+            }
+            
+            // fit the 3rd order polynomial
+            auto coeffs = polyfit(ptsx_transform, ptsy_transform, 3);
+            
+            
+            // Initial state.
+            double x0 = 0;
+            double y0 = 0;
+            double psi0 = 0;
+            
+            //calculate cte
+            double cte0 = coeffs[0];
+            
+            //calculate epsi
+            double epsi0 = -atan(coeffs[1]);
+            
+            //Given, that 100 millisecond latency between actuations
+            int actuations_latency = 100;
+            
+            // Actuator latency in seconds
+            const double latency = actuations_latency / 1000.0;
+            
+            //state after latency
+            double x_latency = x0 + ( v * cos(psi0) * latency );
+            double y_latency = y0 + ( v * sin(psi0) * latency );
+            double psi_latency = psi0 - ( v * delta * latency / Lf );
+            double v_latency = v + a * latency;
+            double cte_latency = cte0 + ( v * sin(epsi0) * latency );
+            double epsi_latency = epsi0 - ( v * atan(coeffs[1]) * latency / Lf );
+            
+            // Define the state vector.
+            Eigen::VectorXd state(6)y_latency
+            state << x_latency, y_latency, psi_latency, v_latency, cte_latency, epsi_latency;
+            
+            //Find the MPC solution
+            auto vars = mpc.Solve(state, coeffs);
+            
 
           /*
           * TODO: Calculate steering angle and throttle using MPC.
@@ -98,18 +151,32 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          double steer_value;
-          double throttle_value;
+
+         
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
+            
+          double steer_value = vars[0]/deg2rad(25);
+          double throttle_value = vars[1];
+            
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
+            
+            for(int i = 2; i < vars.size();i++) {
+                if(i % 2 == 0)
+                {
+                    mpc_x_vals.push_back(vars[i]);
+                    
+                } else {
+                    mpc_y_vals.push_back(vars[i]);
+                }
+            }
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
@@ -123,6 +190,13 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
+          double poly_inc = 2.5;
+          int num_points = 25;
+          
+          for(int i = 1; i < num_points; i++) {
+                next_x_vals.push_back(poly_inc * i);
+                next_y_vals.push_back(polyeval(coeffs, poly_inc * i));
+          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
@@ -139,7 +213,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(actuations_latency));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
