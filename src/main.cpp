@@ -96,19 +96,16 @@ int main() {
             
           // Transforms waypoints coordinates to the cars coordinates.
           size_t n_waypoints = ptsx.size();
-          for (int i = 0; i < n_waypoints; i++ ) {
-                double x = ptsx[i] - px;
-                double y = ptsy[i] - py;
-                double zero_psi = 0.0 - psi;
-                ptsx_transform[i] = x * cos( zero_psi ) - y * sin( zero_psi );
-                ptsy_transform[i] = x * sin( zero_psi ) + y * cos( zero_psi );
+            auto ptsx_transform = Eigen::VectorXd(n_waypoints);
+            auto ptsy_transform = Eigen::VectorXd(n_waypoints);
+            for (unsigned int i = 0; i < n_waypoints; i++ ) {
+                double dX = ptsx[i] - px;
+                double dY = ptsy[i] - py;
+                double minus_psi = 0.0 - psi;
+                ptsx_transform( i ) = dX * cos( minus_psi ) - dY * sin( minus_psi );
+                ptsy_transform( i ) = dX * sin( minus_psi ) + dY * cos( minus_psi );
             }
-            
-            double* ptrx = &ptsx[0];
-            double* ptry = &ptsy[0];
-            
-            Eigen::Map<Eigen::VectorXd> ptsx_transform(ptrx,6);
-            Eigen::Map<Eigen::VectorXd> ptsy_transform(ptry,6);
+          
             
             // fit the 3rd order polynomial
             auto coeffs = polyfit(ptsx_transform, ptsy_transform, 3);
@@ -138,7 +135,7 @@ int main() {
           */
 
             //Find the MPC solution
-            auto vars = mpc.Solve(state, coeffs)
+            auto vars = mpc.Solve(state, coeffs);
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
@@ -197,7 +194,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(actuations_latency));
+          this_thread::sleep_for(chrono::milliseconds(100));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
