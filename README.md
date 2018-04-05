@@ -38,6 +38,33 @@ Self-Driving Car Engineer Nanodegree Program
 3. Compile: `cmake .. && make`
 4. Run it: `./mpc`.
 
+## [Rubric](https://review.udacity.com/#!/rubrics/896/view)
+### The Model
+
+Model that is being used in MPC is global kinematic model to return the next state vector (state at t+1) from our state vector at t and our actuator values. The model equations are as follow:
+       
+    x[t] = x[t-1] + v[t-1] * cos(psi[t-1]) * dt
+    y[t] = y[t-1] + v[t-1] * sin(psi[t-1]) * dt
+    psi[t] = psi[t-1] + v[t-1] / Lf * delta[t-1] * dt
+    v[t] = v[t-1] + a[t-1] * dt
+    cte[t] = f(x[t-1]) - y[t-1] + v[t-1] * sin(epsi[t-1]) * dt
+    epsi[t] = psi[t] - psides[t-1] + v[t-1] * delta[t-1] / Lf * dt
+    
+Where:
+
+    x, y : Car's position.
+     psi : Car's heading direction.
+       v : Car's velocity.
+     cte : Cross-track error.
+    epsi : Orientation error.
+       a : Car's acceleration (throttle).
+    delta : Steering angle.
+    
+The goal is to find steering angle(delta) and throttle (a) that will minimize the cost function.
+
+### Timestep Length and Elapsed Duration (N & dt): 
+
+The values of N and dt are 10 and 0.1, respectively. These values are taken from the suggestion provided from the Udacity office hours.  Other values I trieda are 20 / 0.05, 20 / 0.025, 25 / 0.05, etc. But the behaviour of the car in simulator produced erratic behaviour and controller was running slower. So I stick with 10(N) and 0.1(dt) which explains that the optimizer is considering a one-second duration in which to determine a corrective trajectory. 
 ## Tips
 
 1. It's recommended to test the MPC on basic examples to see if your implementation behaves as desired. One possible example
