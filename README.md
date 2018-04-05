@@ -41,7 +41,7 @@ Self-Driving Car Engineer Nanodegree Program
 ## [Rubric](https://review.udacity.com/#!/rubrics/896/view)
 ### The Model
 
-Model that is being used in MPC is global kinematic model to return the next state vector (state at t+1) from our state vector at t and our actuator values. The model equations are as follow:
+Model that is being used in MPC is global kinematic model that returns the next state vector (state at t+1) from state vector at t and actuator values. The model equations are as follow:
        
     x[t] = x[t-1] + v[t-1] * cos(psi[t-1]) * dt
     y[t] = y[t-1] + v[t-1] * sin(psi[t-1]) * dt
@@ -65,6 +65,16 @@ The goal is to find steering angle(delta) and throttle (a) that will minimize th
 ### Timestep Length and Elapsed Duration (N & dt): 
 
 The values of N and dt are 10 and 0.1, respectively. These values are taken from the suggestion provided from the Udacity office hours.  Other values I trieda are 20 / 0.05, 20 / 0.025, 25 / 0.05, etc. But the behaviour of the car in simulator produced erratic behaviour and controller was running slower. So I stick with 10(N) and 0.1(dt) which explains that the optimizer is considering a one-second duration in which to determine a corrective trajectory. 
+
+### Polynomial Fitting and MPC Preprocessing:
+
+MPC Preprocessing was performed by transforming the waypoints provided by the simulator to the car coordinate system.  A 3rd-degree polynomial is fitted to the transformed waypoints . These polynomial coefficients are then used to calculate the cte and epsi.
+
+### Model Predictive Control with Latency
+
+Kinematic model depend upon the actuations from the previous timestep, but with a delay of 100ms, the model should be modified to account for this. To handle actuator latency, the state values are calculated using the model and the delay interval.
+
+
 ## Tips
 
 1. It's recommended to test the MPC on basic examples to see if your implementation behaves as desired. One possible example
